@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Yuna Chat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Quicksand&display=swap" rel="stylesheet" />
+  <style>
+    body, input, button {
+      font-family: 'Quicksand', sans-serif;
+    }
+    #chat-hover-bubble {
+      display: none;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+      position: relative;
+      background: #ffe6f0;
+      color: #7b3f61;
+      box-shadow: 0 4px 8px rgba(203, 140, 170, 0.3);
+      font-weight: 600;
+      border-radius: 9999px;
+      padding: 6px 14px;
+      user-select: none;
+    }
+    #chat-hover-bubble::after {
+      content: '';
+      position: absolute;
+      top: 100%; 
+      left: 80%;
+      transform: translateX(-50%);
+      border-width: 6px;
+      border-style: solid;
+      border-color: #ffe6f0 transparent transparent transparent;
+      opacity: 0;
+      transition: opacity 0.8s ease;
+    }
+    #chat-toggle-wrapper:hover #chat-hover-bubble {
+      display: block;
+      opacity: 1;
+      transform: translateY(-8px);
+    }
+    #chat-toggle-wrapper:hover #chat-hover-bubble::after {
+      opacity: 1;
+    }
+    .chat-open #chat-hover-bubble {
+      display: none !important;
+    }
+    #avatar-img {
+      position: fixed;
+      width: auto;
+      height: 520px;
+      bottom: 96px;
+      right: 410px;
+      z-index: 50;
+      object-fit: cover;
+      display: none;
+      pointer-events: none;
+      filter: drop-shadow(0 0 15px rgba(255, 182, 193, 0.7));
+      border-radius: 24px;
+      transition: filter 0.4s ease;
+    }
+    .avatar-visible {
+      display: block !important;
+      filter: drop-shadow(0 0 25px rgba(255, 182, 193, 0.9));
+    }
+  </style>
+</head>
+<body class="bg-pink-50 h-screen">
+
+  <!-- Floating Avatar -->
+  <img id="avatar-img" alt="Yuna Avatar">
+
+  <!-- Toggle Chat Button -->
+  <div id="chat-toggle-wrapper" class="fixed bottom-6 right-6 z-50 flex flex-col items-end space-y-1">
+    <div id="chat-hover-bubble">
+      I’m Yuna, your gentle friend. Let’s talk when you’re ready 💕
+    </div>
+    <button id="chat-toggle-btn" class="w-14 h-14 rounded-full shadow-lg overflow-hidden border-2 border-pink-300">
+      <img id="yuna-icon" alt="Chat Icon" class="w-full h-full object-cover" />
+    </button>
+  </div>
+
+  <!-- Chat Box -->
+  <div id="chat-box-container" class="hidden fixed bottom-24 right-6 flex flex-col rounded-2xl overflow-hidden shadow-xl z-40 bg-white w-[420px] h-[520px]">
+    <div class="flex-1 flex flex-col bg-gray-100 h-full">
+      <div class="flex justify-between items-center px-4 py-2 bg-pink-100 border-b">
+        <span class="font-semibold text-pink-700">Yuna Mizuki</span>
+        <button id="mute-btn" class="w-6 h-6">
+          <img id="mute-icon" alt="Mute Toggle" class="w-full h-full object-contain" />
+        </button>
+      </div>
+
+      <!-- Chat Messages -->
+      <div id="chat-box" class="flex-1 p-2 space-y-2 overflow-y-auto bg-white text-sm"></div>
+
+      <!-- Input -->
+      <form id="chat-form" class="flex border-t p-2 bg-gray-50">
+        <input type="text" id="user-input" placeholder="Type something..." class="flex-1 border rounded-full px-4 py-1 focus:outline-none focus:ring text-sm" required />
+        <button type="submit" class="ml-2 bg-purple-600 text-white px-3 py-1 rounded-full hover:bg-purple-700 text-sm">Send</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Audio Responses -->
+  <audio id="audio-typing"></audio>
+  <audio id="audio-uwah"></audio>
+  <audio id="audio-sorry"></audio>
+  <audio id="audio-asleep"></audio>
+
+  <!-- Load Media Config -->
+  <script src="https://cdn.jsdelivr.net/gh/RealStruggleWorld/Media@main/media.js"></script>
+
+  <!-- Yuna Chat Script -->
+  <script>
+    window.addEventListener('load', () => {
+      document.getElementById('avatar-img').src = yunaConfig.yuna_avatar_img;
+      document.getElementById('yuna-icon').src = yunaConfig.yuna_icon_chat;
+      document.getElementById('mute-icon').src = yunaConfig.yuna_icon_mute_off;
+      document.getElementById('audio-typing').src = yunaConfig.yuna_audio_typing;
+      document.getElementById('audio-uwah').src = yunaConfig.yuna_audio_uwah;
+      document.getElementById('audio-sorry').src = yunaConfig.yuna_audio_sorry;
+      document.getElementById('audio-asleep').src = yunaConfig.yuna_audio_asleep;
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('chat-form');
+      const input = document.getElementById('user-input');
+      const chatBox = document.getElementById('chat-box');
+      const chatBoxContainer = document.getElementById('chat-box-container');
+      const toggleWrapper = document.getElementById('chat-toggle-wrapper');
+      const toggleBtn = document.getElementById('chat-toggle-btn');
+      const avatarImg = document.getElementById('avatar-img');
+      const muteBtn = document.getElementById('mute-btn');
+      const muteIcon = document.getElementById('mute-icon');
+
+      const audioTyping = document.getElementById('audio-typing');
+      const audioUwah = document.getElementById('audio-uwah');
+      const audioSorry = document.getElementById('audio-sorry');
+      const audioAsleep = document.getElementById('audio-asleep');
+
+      let isMuted = false;
+
+      muteBtn?.addEventListener('click', () => {
+        isMuted = !isMuted;
+        muteIcon.src = isMuted ? yunaConfig.yuna_icon_mute_on : yunaConfig.yuna_icon_mute_off;
+      });
+
+      function playSound(audio) {
+        if (!isMuted) {
+          audio.currentTime = 0;
+          audio.play();
+        }
+      }
+
+      let typingMsg;
+      let timeouts = [];
+
+      form?.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const userText = input.value.trim();
+        if (!userText) return;
+
+        addMessage('user', userText);
+        input.value = '';
+        showTypingIndicator();
+
+        try {
+          const res = await fetch(yunaConfig.yuna_api_endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: userText })
+          });
+
+          const data = await res.json();
+          removeTypingIndicator();
+          addMessage('ai', data.reply || "I'm sorry, I didn’t quite catch that.");
+        } catch (error) {
+          console.error('Fetch error:', error);
+          playSound(audioAsleep);
+          removeTypingIndicator();
+          addMessage('ai', "Oh no... I think I got a little distracted... sorry.");
+        }
+      });
+
+      function addMessage(sender, text) {
+        const msg = document.createElement('div');
+        msg.innerHTML = `
+          <div class="flex ${sender === 'user' ? 'justify-end' : 'justify-start'}">
+            <div class="px-3 py-2 rounded-xl max-w-[70%] ${sender === 'user' ? 'bg-blue-200' : 'bg-gray-200'}">
+              ${text}
+            </div>
+          </div>
+        `;
+        chatBox.appendChild(msg);
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+
+      function showTypingIndicator() {
+        typingMsg = document.createElement('div');
+        typingMsg.classList.add('flex', 'justify-start');
+        typingMsg.innerHTML = `
+          <div id="typing-text" class="px-3 py-2 rounded-xl max-w-[70%] bg-gray-200 italic text-gray-500">...</div>
+        `;
+        chatBox.appendChild(typingMsg);
+        chatBox.scrollTop = chatBox.scrollHeight;
+
+        timeouts.push(setTimeout(() => {
+          const typingText = document.getElementById('typing-text');
+          if (typingText) {
+            typingText.innerText = "Please wait a moment, I'm thinking...";
+            playSound(audioTyping);
+          }
+        }, 3000));
+
+        timeouts.push(setTimeout(() => {
+          const typingText = document.getElementById('typing-text');
+          if (typingText) {
+            typingText.innerHTML = `<i style="color:#a6789f">I’m still working on it... thanks so much for your patience 💜</i>`;
+            playSound(audioUwah);
+          }
+        }, 15000));
+
+        timeouts.push(setTimeout(() => {
+          const typingText = document.getElementById('typing-text');
+          if (typingText) {
+            typingText.innerHTML = `<i style="color:#a6789f">I'm so sorry it’s taking a while! I really want to help you 💖</i>`;
+            playSound(audioSorry);
+          }
+        }, 30000));
+      }
+
+      function removeTypingIndicator() {
+        if (typingMsg) {
+          chatBox.removeChild(typingMsg);
+          typingMsg = null;
+        }
+        timeouts.forEach(timeout => clearTimeout(timeout));
+        timeouts = [];
+      }
+
+      toggleBtn.addEventListener('click', () => {
+        const isOpen = !chatBoxContainer.classList.contains('hidden');
+        if (isOpen) {
+          chatBoxContainer.classList.add('hidden');
+          toggleWrapper.classList.remove('chat-open');
+          avatarImg.classList.remove('avatar-visible');
+        } else {
+          chatBoxContainer.classList.remove('hidden');
+          toggleWrapper.classList.add('chat-open');
+          avatarImg.classList.add('avatar-visible');
+        }
+      });
+    });
+  </script>
+</body>
+</html>
